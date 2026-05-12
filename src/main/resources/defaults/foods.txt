@@ -1,0 +1,4 @@
+# code|name|basePrice|kitchenCode|categoryCode
+FD001|Fried Rice|50|MAIN|FOOD
+FD002|Pad Thai|60|MAIN|FOOD
+DR001|Iced Tea|20|BAR|DRINK

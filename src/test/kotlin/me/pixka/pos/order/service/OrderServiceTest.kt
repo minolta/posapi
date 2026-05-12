@@ -1,0 +1,332 @@
+package me.pixka.pos.order.service
+
+import me.pixka.pos.food.model.Food
+import me.pixka.pos.food.repository.FoodRepository
+import me.pixka.pos.foodcategory.model.FoodCategory
+import me.pixka.pos.foodcategory.repository.FoodCategoryRepository
+import me.pixka.pos.kitchen.model.Kitchen
+import me.pixka.pos.kitchen.repository.KitchenRepository
+import me.pixka.pos.order.api.OrderLineRequest
+import me.pixka.pos.order.api.OrderRequest
+import me.pixka.pos.order.exception.OrderAlreadyPaidException
+import me.pixka.pos.order.exception.OrderNotFoundException
+import me.pixka.pos.order.repository.OrderRepository
+import me.pixka.pos.table.model.PosTable
+import me.pixka.pos.table.repository.TableRepository
+import me.pixka.pos.zone.model.Zone
+import me.pixka.pos.zone.repository.ZoneRepository
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNotEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.context.SpringBootTest
+import java.time.LocalDateTime
+
+@SpringBootTest
+class OrderServiceTest {
+    @Autowired
+    private lateinit var orderService: OrderService
+
+    @Autowired
+    private lateinit var orderRepository: OrderRepository
+
+    @Autowired
+    private lateinit var tableRepository: TableRepository
+
+    @Autowired
+    private lateinit var foodRepository: FoodRepository
+
+    @Autowired
+    private lateinit var zoneRepository: ZoneRepository
+
+    @Autowired
+    private lateinit var kitchenRepository: KitchenRepository
+
+    @Autowired
+    private lateinit var foodCategoryRepository: FoodCategoryRepository
+
+    private lateinit var table: PosTable
+    private lateinit var food: Food
+    private lateinit var drink: Food
+
+    @BeforeEach
+    fun clearData() {
+        orderRepository.deleteAll()
+        foodRepository.deleteAll()
+        tableRepository.deleteAll()
+        kitchenRepository.deleteAll()
+        foodCategoryRepository.deleteAll()
+        zoneRepository.deleteAll()
+
+        val zone = zoneRepository.save(
+            Zone(
+                code = "ZN-001",
+                name = "Test zone"
+            )
+        )
+        table = tableRepository.save(
+            PosTable(
+                code = "TB-001",
+                basePrice = 0.0,
+                zone = zone
+            )
+        )
+        val kitchen = kitchenRepository.save(
+            Kitchen(code = "KT-001", name = "Test kitchen")
+        )
+        val foodCategory = foodCategoryRepository.save(
+            FoodCategory(code = "CAT-001")
+        )
+        food = foodRepository.save(
+            Food(
+                code = "FD-001",
+                name = "Test food",
+                basePrice = 10.0,
+                kitchen = kitchen,
+                foodCategory = foodCategory
+            )
+        )
+        drink = foodRepository.save(
+            Food(
+                code = "DR-001",
+                name = "Test drink",
+                basePrice = 3.0,
+                kitchen = kitchen,
+                foodCategory = foodCategory
+            )
+        )
+    }
+
+    private fun singleLine(foodId: Long, qty: Int = 1) =
+        listOf(OrderLineRequest(foodId = foodId, quantity = qty))
+
+    @Test
+    fun `create should save order with lines and cancel`() {
+        val request = OrderRequest(
+            orderNo = "ORD-001",
+            tableId = table.id!!,
+            orderDate = LocalDateTime.now(),
+            complateOrder = false,
+            complateOrderDate = null,
+            cancel = true,
+            lines = listOf(
+                OrderLineRequest(food.id!!, 2),
+                OrderLineRequest(drink.id!!, 1)
+            ),
+            version = 0
+        )
+
+        val created = orderService.create(request)
+
+        assertEquals("ORD-001", created.orderNo)
+        assertEquals(table.id, created.table?.id)
+        assertEquals(true, created.cancel)
+        assertFalse(created.paid)
+        assertEquals(2, created.lines.size)
+        assertEquals(2, created.lines[0].quantity)
+        assertEquals(10.0, created.lines[0].unitPrice)
+        assertEquals(food.id, created.lines[0].food?.id)
+        assertEquals(1, orderRepository.count())
+    }
+
+    @Test
+    fun `create should generate orderNo when null or blank`() {
+        val day = LocalDateTime.now().withHour(10).withMinute(0).withSecond(0).withNano(0)
+        val fromBlank = orderService.create(
+            OrderRequest(
+                orderNo = "   ",
+                tableId = table.id!!,
+                orderDate = day,
+                complateOrder = false,
+                complateOrderDate = null,
+                cancel = false,
+                lines = singleLine(food.id!!),
+                version = 0
+            )
+        )
+        assertTrue(fromBlank.orderNo.matches(Regex("""\d{8}-\d{3,}""")))
+
+        val fromNull = orderService.create(
+            OrderRequest(
+                orderNo = null,
+                tableId = table.id!!,
+                orderDate = day,
+                complateOrder = false,
+                complateOrderDate = null,
+                cancel = false,
+                lines = singleLine(food.id!!),
+                version = 0
+            )
+        )
+        assertEquals("001", fromBlank.orderNo.takeLast(3))
+        assertEquals("002", fromNull.orderNo.takeLast(3))
+        assertEquals(fromBlank.orderNo.take(8), fromNull.orderNo.take(8))
+        assertNotEquals(fromBlank.orderNo, fromNull.orderNo)
+    }
+
+    @Test
+    fun `update should change order when not paid`() {
+        val existing = orderService.create(
+            OrderRequest(
+                orderNo = "ORD-OLD",
+                tableId = table.id!!,
+                orderDate = LocalDateTime.now().minusHours(1),
+                complateOrder = false,
+                complateOrderDate = null,
+                cancel = false,
+                lines = singleLine(food.id!!),
+                version = 0
+            )
+        )
+
+        val request = OrderRequest(
+            orderNo = "ORD-NEW",
+            tableId = table.id!!,
+            orderDate = LocalDateTime.now(),
+            complateOrder = true,
+            complateOrderDate = LocalDateTime.now(),
+            cancel = true,
+            lines = singleLine(drink.id!!, 3),
+            version = 0
+        )
+
+        val updated = orderService.update(existing.id!!, request)
+
+        assertEquals(existing.id, updated.id)
+        assertEquals("ORD-NEW", updated.orderNo)
+        assertEquals(true, updated.complateOrder)
+        assertEquals(true, updated.cancel)
+        assertEquals(1, updated.lines.size)
+        assertEquals(drink.id, updated.lines[0].food?.id)
+        assertEquals(3, updated.lines[0].quantity)
+    }
+
+    @Test
+    fun `pay should close order`() {
+        val existing = orderService.create(
+            OrderRequest(
+                orderNo = "ORD-PAY",
+                tableId = table.id!!,
+                orderDate = LocalDateTime.now(),
+                complateOrder = false,
+                complateOrderDate = null,
+                cancel = false,
+                lines = listOf(
+                    OrderLineRequest(food.id!!, 1),
+                    OrderLineRequest(drink.id!!, 2)
+                ),
+                version = 0
+            )
+        )
+
+        val paid = orderService.pay(existing.id!!)
+
+        assertTrue(paid.paid)
+        assertNotNull(paid.paidAt)
+        assertTrue(paid.complateOrder)
+        assertNotNull(paid.complateOrderDate)
+    }
+
+    @Test
+    fun `pay twice should fail`() {
+        val existing = orderService.create(
+            OrderRequest(
+                orderNo = "ORD-2PAY",
+                tableId = table.id!!,
+                orderDate = LocalDateTime.now(),
+                complateOrder = false,
+                complateOrderDate = null,
+                cancel = false,
+                lines = singleLine(food.id!!),
+                version = 0
+            )
+        )
+        orderService.pay(existing.id!!)
+
+        assertThrows(OrderAlreadyPaidException::class.java) {
+            orderService.pay(existing.id!!)
+        }
+    }
+
+    @Test
+    fun `update should fail when order already paid`() {
+        val existing = orderService.create(
+            OrderRequest(
+                orderNo = "ORD-LOCK",
+                tableId = table.id!!,
+                orderDate = LocalDateTime.now(),
+                complateOrder = false,
+                complateOrderDate = null,
+                cancel = false,
+                lines = singleLine(food.id!!),
+                version = 0
+            )
+        )
+        orderService.pay(existing.id!!)
+
+        val request = OrderRequest(
+            orderNo = "ORD-X",
+            tableId = table.id!!,
+            orderDate = LocalDateTime.now(),
+            complateOrder = false,
+            complateOrderDate = null,
+            cancel = false,
+            lines = singleLine(food.id!!),
+            version = 0
+        )
+
+        assertThrows(OrderAlreadyPaidException::class.java) {
+            orderService.update(existing.id!!, request)
+        }
+    }
+
+    @Test
+    fun `delete should remove order`() {
+        val existing = orderService.create(
+            OrderRequest(
+                orderNo = "ORD-DEL",
+                tableId = table.id!!,
+                orderDate = LocalDateTime.now(),
+                complateOrder = false,
+                complateOrderDate = null,
+                cancel = false,
+                lines = singleLine(food.id!!),
+                version = 0
+            )
+        )
+
+        orderService.delete(existing.id!!)
+
+        assertFalse(orderRepository.existsById(existing.id!!))
+    }
+
+    @Test
+    fun `update should throw when order not found`() {
+        val request = OrderRequest(
+            orderNo = "ORD-404",
+            tableId = table.id!!,
+            orderDate = LocalDateTime.now(),
+            complateOrder = false,
+            complateOrderDate = null,
+            cancel = false,
+            lines = singleLine(food.id!!),
+            version = 0
+        )
+
+        assertThrows(OrderNotFoundException::class.java) {
+            orderService.update(999999, request)
+        }
+    }
+
+    @Test
+    fun `delete should throw when order not found`() {
+        assertThrows(OrderNotFoundException::class.java) {
+            orderService.delete(999999)
+        }
+    }
+}

@@ -1,0 +1,4 @@
+# code|basePrice|zoneCode
+T1|0|A
+T2|0|A
+T3|0|B

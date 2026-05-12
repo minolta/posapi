@@ -1,0 +1,4 @@
+# code|name
+FOOD|Food
+DRINK|Drink
+DESSERT|Dessert
