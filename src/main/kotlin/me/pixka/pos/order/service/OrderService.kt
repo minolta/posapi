@@ -26,6 +26,8 @@ class OrderService(
         val table = tableRepository.findById(request.tableId).orElseThrow { TableNotFoundException(request.tableId) }
         val order = PosOrder(
             orderNo = resolveOrderNoForCreate(request.orderNo, request.orderDate),
+            paidPrice = request.paidPrice ?: 0.0,
+            change = request.change ?: 0.0,
             table = table,
             orderDate = request.orderDate,
             complateOrder = request.complateOrder,
@@ -52,6 +54,8 @@ class OrderService(
         order.complateOrder = request.complateOrder
         order.complateOrderDate = request.complateOrderDate
         order.cancel = request.cancel
+        order.paidPrice = request.paidPrice ?: 0.0
+        order.change = request.change ?: 0.0
         replaceLines(order, request.lines)
         return orderRepository.save(order)
     }

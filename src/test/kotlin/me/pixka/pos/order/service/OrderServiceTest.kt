@@ -114,6 +114,8 @@ class OrderServiceTest {
             complateOrder = false,
             complateOrderDate = null,
             cancel = true,
+            paidPrice = 100.0,
+            change = 5.0,
             lines = listOf(
                 OrderLineRequest(food.id!!, 2),
                 OrderLineRequest(drink.id!!, 1)
@@ -126,6 +128,8 @@ class OrderServiceTest {
         assertEquals("ORD-001", created.orderNo)
         assertEquals(table.id, created.table?.id)
         assertEquals(true, created.cancel)
+        assertEquals(100.0, created.paidPrice)
+        assertEquals(5.0, created.change)
         assertFalse(created.paid)
         assertEquals(2, created.lines.size)
         assertEquals(2, created.lines[0].quantity)
@@ -145,6 +149,8 @@ class OrderServiceTest {
                 complateOrder = false,
                 complateOrderDate = null,
                 cancel = false,
+                paidPrice = 0.0,
+                change = 0.0,
                 lines = singleLine(food.id!!),
                 version = 0
             )
@@ -159,6 +165,8 @@ class OrderServiceTest {
                 complateOrder = false,
                 complateOrderDate = null,
                 cancel = false,
+                paidPrice = 0.0,
+                change = 0.0,
                 lines = singleLine(food.id!!),
                 version = 0
             )
@@ -179,6 +187,8 @@ class OrderServiceTest {
                 complateOrder = false,
                 complateOrderDate = null,
                 cancel = false,
+                paidPrice = 0.0,
+                change = 0.0,
                 lines = singleLine(food.id!!),
                 version = 0
             )
@@ -191,6 +201,8 @@ class OrderServiceTest {
             complateOrder = true,
             complateOrderDate = LocalDateTime.now(),
             cancel = true,
+            paidPrice = 200.0,
+            change = 15.0,
             lines = singleLine(drink.id!!, 3),
             version = 0
         )
@@ -204,6 +216,8 @@ class OrderServiceTest {
         assertEquals(1, updated.lines.size)
         assertEquals(drink.id, updated.lines[0].food?.id)
         assertEquals(3, updated.lines[0].quantity)
+        assertEquals(200.0, updated.paidPrice)
+        assertEquals(15.0, updated.change)
     }
 
     @Test
@@ -216,6 +230,8 @@ class OrderServiceTest {
                 complateOrder = false,
                 complateOrderDate = null,
                 cancel = false,
+                paidPrice = 0.0,
+                change = 0.0,
                 lines = listOf(
                     OrderLineRequest(food.id!!, 1),
                     OrderLineRequest(drink.id!!, 2)
@@ -242,6 +258,8 @@ class OrderServiceTest {
                 complateOrder = false,
                 complateOrderDate = null,
                 cancel = false,
+                paidPrice = 0.0,
+                change = 0.0,
                 lines = singleLine(food.id!!),
                 version = 0
             )
@@ -263,6 +281,8 @@ class OrderServiceTest {
                 complateOrder = false,
                 complateOrderDate = null,
                 cancel = false,
+                paidPrice = 0.0,
+                change = 0.0,
                 lines = singleLine(food.id!!),
                 version = 0
             )
@@ -276,6 +296,8 @@ class OrderServiceTest {
             complateOrder = false,
             complateOrderDate = null,
             cancel = false,
+            paidPrice = 0.0,
+            change = 0.0,
             lines = singleLine(food.id!!),
             version = 0
         )
@@ -295,6 +317,8 @@ class OrderServiceTest {
                 complateOrder = false,
                 complateOrderDate = null,
                 cancel = false,
+                paidPrice = 0.0,
+                change = 0.0,
                 lines = singleLine(food.id!!),
                 version = 0
             )
@@ -314,6 +338,8 @@ class OrderServiceTest {
             complateOrder = false,
             complateOrderDate = null,
             cancel = false,
+            paidPrice = 0.0,
+            change = 0.0,
             lines = singleLine(food.id!!),
             version = 0
         )

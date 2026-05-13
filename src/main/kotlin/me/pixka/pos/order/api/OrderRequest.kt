@@ -4,6 +4,7 @@ import jakarta.validation.Valid
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotEmpty
 import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.PositiveOrZero
 import jakarta.validation.constraints.Size
 import java.time.LocalDateTime
 
@@ -25,6 +26,14 @@ data class OrderRequest(
 
     @field:NotNull(message = "cancel is required")
     val cancel: Boolean,
+
+    /** When null or omitted, treated as 0. */
+    @field:PositiveOrZero(message = "paidPrice must be >= 0")
+    val paidPrice: Double? = null,
+
+    /** When null or omitted, treated as 0. */
+    @field:PositiveOrZero(message = "change must be >= 0")
+    val change: Double? = null,
 
     @field:NotEmpty(message = "lines must contain at least one item")
     @field:Valid
