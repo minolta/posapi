@@ -9,6 +9,8 @@ interface KitchenRepository : JpaRepository<Kitchen, Long> {
     fun existsByCodeIgnoreCase(code: String): Boolean
     fun findByCodeIgnoreCase(code: String): Kitchen?
 
+    fun countByPrinterId(printerId: Long): Long
+
     @Query(
         """
         SELECT k FROM Kitchen k

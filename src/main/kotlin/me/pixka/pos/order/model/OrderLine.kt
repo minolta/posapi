@@ -33,6 +33,9 @@ class OrderLine(
     @Column(nullable = false)
     var quantity: Int = 1,
 
+    @Column(length = 255)
+    var note: String? = null,
+
     /** Unit price at time of order (snapshot from {@link Food#basePrice}). */
     @Column(name = "unit_price", nullable = false)
     var unitPrice: Double = 0.0,

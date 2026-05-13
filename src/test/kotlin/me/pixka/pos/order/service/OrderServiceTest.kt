@@ -355,4 +355,102 @@ class OrderServiceTest {
             orderService.delete(999999)
         }
     }
+
+    @Test
+    fun `receipt should return line totals and subtotal`() {
+        val created = orderService.create(
+            OrderRequest(
+                orderNo = "ORD-RCP",
+                tableId = table.id!!,
+                orderDate = LocalDateTime.now(),
+                complateOrder = false,
+                complateOrderDate = null,
+                cancel = false,
+                paidPrice = 30.0,
+                change = 7.0,
+                lines = listOf(
+                    OrderLineRequest(food.id!!, 2),
+                    OrderLineRequest(drink.id!!, 1),
+                ),
+                version = 0,
+            )
+        )
+
+        val r = orderService.receipt(created.id!!)
+
+        assertEquals(created.id, r.orderId)
+        assertEquals("ORD-RCP", r.orderNo)
+        assertEquals("TB-001", r.tableCode)
+        assertEquals("Test zone", r.zoneName)
+        assertEquals(2, r.lines.size)
+        assertEquals("FD-001", r.lines[0].foodCode)
+        assertEquals(20.0, r.lines[0].lineTotal)
+        assertEquals(3.0, r.lines[1].lineTotal)
+        assertEquals(23.0, r.subtotal)
+        assertEquals(30.0, r.paidPrice)
+        assertEquals(7.0, r.change)
+        assertFalse(r.paid)
+    }
+
+    @Test
+    fun `receipt should throw when order not found`() {
+        assertThrows(OrderNotFoundException::class.java) {
+            orderService.receipt(999999)
+        }
+    }
+
+    @Test
+    fun `report should support date range with daily and item totals`() {
+        val d1 = LocalDateTime.now().minusDays(1).withHour(10).withMinute(0).withSecond(0).withNano(0)
+        val d2 = LocalDateTime.now().withHour(11).withMinute(0).withSecond(0).withNano(0)
+
+        val paidOrder = orderService.create(
+            OrderRequest(
+                orderNo = "RP-001",
+                tableId = table.id!!,
+                orderDate = d1,
+                complateOrder = false,
+                complateOrderDate = null,
+                cancel = false,
+                paidPrice = 0.0,
+                change = 0.0,
+                lines = listOf(
+                    OrderLineRequest(food.id!!, 2),
+                    OrderLineRequest(drink.id!!, 1),
+                ),
+                version = 0,
+            )
+        )
+        orderService.pay(paidOrder.id!!)
+
+        orderService.create(
+            OrderRequest(
+                orderNo = "RP-002",
+                tableId = table.id!!,
+                orderDate = d2,
+                complateOrder = false,
+                complateOrderDate = null,
+                cancel = true,
+                paidPrice = 0.0,
+                change = 0.0,
+                lines = listOf(OrderLineRequest(food.id!!, 1)),
+                version = 0,
+            )
+        )
+
+        val report = orderService.report(d1.toLocalDate(), d2.toLocalDate())
+
+        assertEquals(2, report.orderCount)
+        assertEquals(1, report.paidOrderCount)
+        assertEquals(1, report.cancelledOrderCount)
+        assertEquals(23.0, report.grossSales)
+        assertEquals(2, report.daily.size)
+        assertEquals(2, report.items.size)
+        assertEquals("DR-001", report.items[0].foodCode)
+        assertEquals(1, report.items[0].quantity)
+        assertEquals(3.0, report.items[0].total)
+        assertEquals("FD-001", report.items[1].foodCode)
+        assertEquals(2, report.items[1].quantity)
+        assertEquals(20.0, report.items[1].total)
+    }
 }

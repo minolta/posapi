@@ -8,6 +8,7 @@ import me.pixka.pos.foodcategory.model.FoodCategory
 import me.pixka.pos.foodcategory.repository.FoodCategoryRepository
 import me.pixka.pos.kitchen.model.Kitchen
 import me.pixka.pos.kitchen.repository.KitchenRepository
+import me.pixka.pos.order.repository.OrderRepository
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotNull
@@ -45,11 +46,15 @@ class FoodServiceTest {
     @Autowired
     private lateinit var foodCategoryRepository: FoodCategoryRepository
 
+    @Autowired
+    private lateinit var orderRepository: OrderRepository
+
     private lateinit var kitchen: Kitchen
     private lateinit var foodCategory: FoodCategory
 
     @BeforeEach
     fun clearData() {
+        orderRepository.deleteAll()
         foodRepository.deleteAll()
         kitchenRepository.deleteAll()
         foodCategoryRepository.deleteAll()
