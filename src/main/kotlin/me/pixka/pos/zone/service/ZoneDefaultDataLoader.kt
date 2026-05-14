@@ -13,6 +13,8 @@ import org.springframework.core.io.ResourceLoader
 class ZoneDefaultDataLoader(
     private val zoneRepository: ZoneRepository,
     private val resourceLoader: ResourceLoader,
+    @Value("\${app.default-data-load.enabled:false}")
+    private val defaultDataLoadEnabled: Boolean,
     @Value("\${app.zone-default-file:classpath:defaults/zones.txt}")
     private val defaultFile: String
 ) {
@@ -20,6 +22,10 @@ class ZoneDefaultDataLoader(
 
     @Bean
     fun loadDefaultZonesOnStartup(): ApplicationRunner = ApplicationRunner {
+        if (!defaultDataLoadEnabled) {
+            log.info("Default data load disabled; skip zone seed (app.default-data-load.enabled=false).")
+            return@ApplicationRunner
+        }
         val resource = resourceLoader.getResource(defaultFile)
         if (!resource.exists()) {
             log.info("Zone default file not found at {}", defaultFile)

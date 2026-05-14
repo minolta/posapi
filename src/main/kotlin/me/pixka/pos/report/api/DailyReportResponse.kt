@@ -9,6 +9,8 @@ data class DailyReportResponse(
     val endDate: LocalDate,
     val orderCount: Int,
     val paidOrderCount: Int,
+    /** Paid orders settled with QR/mobile wallet (`paid_by_qr_scan`). */
+    val paidByQrScanOrderCount: Int,
     val totalSales: Double,
     val totalCashReceived: Double,
     val totalChange: Double,
@@ -24,4 +26,6 @@ data class DailyReportRow(
     val totalDue: Double,
     val paidPrice: Double?,
     val change: Double?,
+    /** Settled via scanned QR / mobile wallet. */
+    val paidByQrScan: Boolean,
 )

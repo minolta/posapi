@@ -24,6 +24,8 @@ class EscPosOrderReceiptBuilderTest {
             change = 4.0,
             paid = false,
             paidAt = null,
+            paidByQrScan = false,
+            qrScanPayload = null,
         )
         val bytes = EscPosOrderReceiptBuilder.build(receipt)
         assertTrue(bytes.size > 80)

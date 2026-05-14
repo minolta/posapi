@@ -29,6 +29,7 @@ class DailyReportService(
         /** foodId → rollup */
         val foodRollup = mutableMapOf<Long, FoodAgg>()
         var paidOrderCount = 0
+        var paidByQrScanOrderCount = 0
         var totalSales = 0.0
         var totalCashReceived = 0.0
         var totalChange = 0.0
@@ -47,6 +48,9 @@ class DailyReportService(
                 continue
             }
             paidOrderCount += 1
+            if (order.paidByQrScan) {
+                paidByQrScanOrderCount += 1
+            }
             val due = roundMoney(payableTotal(order))
             totalSales += due
             val pp = roundMoney(order.paidPrice)
@@ -61,6 +65,7 @@ class DailyReportService(
                     totalDue = due,
                     paidPrice = pp,
                     change = ch,
+                    paidByQrScan = order.paidByQrScan,
                 ),
             )
             rollupFoodLines(order, foodRollup)
@@ -87,6 +92,7 @@ class DailyReportService(
             endDate = end,
             orderCount = touchIds.size,
             paidOrderCount = paidOrderCount,
+            paidByQrScanOrderCount = paidByQrScanOrderCount,
             totalSales = roundMoney(totalSales),
             totalCashReceived = roundMoney(totalCashReceived),
             totalChange = roundMoney(totalChange),
@@ -141,7 +147,7 @@ class DailyReportService(
         when (line.status) {
             OrderLineStatus.CANCEL -> return OrderLineStatus.CANCEL
             OrderLineStatus.COMPLETE -> return OrderLineStatus.COMPLETE
-            OrderLineStatus.WAIT -> Unit
+            OrderLineStatus.WAIT, OrderLineStatus.FINISH_COOKING -> Unit
         }
         if (order.cancel) {
             return OrderLineStatus.CANCEL

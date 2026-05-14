@@ -24,4 +24,6 @@ data class OrderReceipt(
     val change: Double,
     val paid: Boolean,
     val paidAt: LocalDateTime?,
+    val paidByQrScan: Boolean,
+    val qrScanPayload: String?,
 )

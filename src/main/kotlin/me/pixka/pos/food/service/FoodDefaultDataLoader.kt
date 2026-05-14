@@ -17,6 +17,8 @@ class FoodDefaultDataLoader(
     private val kitchenRepository: KitchenRepository,
     private val foodCategoryRepository: FoodCategoryRepository,
     private val resourceLoader: ResourceLoader,
+    @Value("\${app.default-data-load.enabled:false}")
+    private val defaultDataLoadEnabled: Boolean,
     @Value("\${app.food-default-file:classpath:defaults/foods.txt}")
     private val defaultFile: String
 ) {
@@ -24,6 +26,10 @@ class FoodDefaultDataLoader(
 
     @Bean
     fun loadDefaultFoodsOnStartup(): ApplicationRunner = ApplicationRunner {
+        if (!defaultDataLoadEnabled) {
+            log.info("Default data load disabled; skip food seed (app.default-data-load.enabled=false).")
+            return@ApplicationRunner
+        }
         val resource = resourceLoader.getResource(defaultFile)
         if (!resource.exists()) {
             log.info("Food default file not found at {}", defaultFile)

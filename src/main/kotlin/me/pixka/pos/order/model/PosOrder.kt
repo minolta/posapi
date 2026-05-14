@@ -42,6 +42,14 @@ class PosOrder(
     @Column(name = "paid_at")
     var paidAt: LocalDateTime? = null,
 
+    /** True when payment was confirmed via scanned QR (e.g. PromptPay / mobile wallet). */
+    @Column(name = "paid_by_qr_scan", nullable = false)
+    var paidByQrScan: Boolean = false,
+
+    /** Raw string read from the QR (optional; for audit / reconciliation). */
+    @Column(name = "qr_scan_payload", length = 1024)
+    var qrScanPayload: String? = null,
+
     @OneToMany(mappedBy = "order", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
     var lines: MutableList<OrderLine> = mutableListOf(),
 

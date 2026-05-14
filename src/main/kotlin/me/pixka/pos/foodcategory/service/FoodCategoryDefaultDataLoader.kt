@@ -13,6 +13,8 @@ import org.springframework.core.io.ResourceLoader
 class FoodCategoryDefaultDataLoader(
     private val foodCategoryRepository: FoodCategoryRepository,
     private val resourceLoader: ResourceLoader,
+    @Value("\${app.default-data-load.enabled:false}")
+    private val defaultDataLoadEnabled: Boolean,
     @Value("\${app.food-category-default-file:classpath:defaults/food-categories.txt}")
     private val defaultFile: String
 ) {
@@ -20,6 +22,10 @@ class FoodCategoryDefaultDataLoader(
 
     @Bean
     fun loadDefaultFoodCategoriesOnStartup(): ApplicationRunner = ApplicationRunner {
+        if (!defaultDataLoadEnabled) {
+            log.info("Default data load disabled; skip food category seed (app.default-data-load.enabled=false).")
+            return@ApplicationRunner
+        }
         val resource = resourceLoader.getResource(defaultFile)
         if (!resource.exists()) {
             log.info("Food category default file not found at {}", defaultFile)

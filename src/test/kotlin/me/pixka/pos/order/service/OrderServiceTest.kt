@@ -8,6 +8,7 @@ import me.pixka.pos.kitchen.model.Kitchen
 import me.pixka.pos.kitchen.repository.KitchenRepository
 import me.pixka.pos.order.api.OrderLineRequest
 import me.pixka.pos.order.api.OrderRequest
+import me.pixka.pos.order.api.PayOrderRequest
 import me.pixka.pos.order.exception.OrderAlreadyPaidException
 import me.pixka.pos.order.exception.OrderNotFoundException
 import me.pixka.pos.order.repository.OrderRepository
@@ -19,15 +20,18 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNotEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
+import org.springframework.test.context.ActiveProfiles
 import java.time.LocalDateTime
 
 @SpringBootTest
+@ActiveProfiles("test")
 class OrderServiceTest {
     @Autowired
     private lateinit var orderService: OrderService
@@ -249,6 +253,99 @@ class OrderServiceTest {
     }
 
     @Test
+    fun `pay with QR scan sets flag and optional payload`() {
+        val existing = orderService.create(
+            OrderRequest(
+                orderNo = "ORD-QR",
+                tableId = table.id!!,
+                orderDate = LocalDateTime.now(),
+                complateOrder = false,
+                complateOrderDate = null,
+                cancel = false,
+                paidPrice = 50.0,
+                change = 5.0,
+                lines = singleLine(food.id!!),
+                version = 0,
+            ),
+        )
+        val payload = "00020101021238570013A000000000000000"
+        val paid = orderService.pay(
+            existing.id!!,
+            PayOrderRequest(
+                paidPrice = 50.0,
+                change = 5.0,
+                paidByQrScan = true,
+                qrScanPayload = payload,
+            ),
+        )
+        assertTrue(paid.paid)
+        assertTrue(paid.paidByQrScan)
+        assertEquals(payload, paid.qrScanPayload)
+        val receipt = orderService.receipt(existing.id!!)
+        assertTrue(receipt.paidByQrScan)
+        assertEquals(payload, receipt.qrScanPayload)
+    }
+
+    @Test
+    fun `pay infers QR payment when qrScanPayload is set and paidByQrScan omitted`() {
+        val existing = orderService.create(
+            OrderRequest(
+                orderNo = "ORD-QR-INF",
+                tableId = table.id!!,
+                orderDate = LocalDateTime.now(),
+                complateOrder = false,
+                complateOrderDate = null,
+                cancel = false,
+                paidPrice = 10.0,
+                change = 0.0,
+                lines = singleLine(food.id!!),
+                version = 0,
+            ),
+        )
+        val payload = "EMVCO|000201010212"
+        val paid = orderService.pay(
+            existing.id!!,
+            PayOrderRequest(
+                paidPrice = 10.0,
+                change = 0.0,
+                paidByQrScan = null,
+                qrScanPayload = payload,
+            ),
+        )
+        assertTrue(paid.paidByQrScan)
+        assertEquals(payload, paid.qrScanPayload)
+    }
+
+    @Test
+    fun `pay treats as cash when paidByQrScan false even if qrScanPayload sent`() {
+        val existing = orderService.create(
+            OrderRequest(
+                orderNo = "ORD-QR-CASH",
+                tableId = table.id!!,
+                orderDate = LocalDateTime.now(),
+                complateOrder = false,
+                complateOrderDate = null,
+                cancel = false,
+                paidPrice = 10.0,
+                change = 0.0,
+                lines = singleLine(food.id!!),
+                version = 0,
+            ),
+        )
+        val paid = orderService.pay(
+            existing.id!!,
+            PayOrderRequest(
+                paidPrice = 10.0,
+                change = 0.0,
+                paidByQrScan = false,
+                qrScanPayload = "ignored-payload",
+            ),
+        )
+        assertFalse(paid.paidByQrScan)
+        assertNull(paid.qrScanPayload)
+    }
+
+    @Test
     fun `pay twice should fail`() {
         val existing = orderService.create(
             OrderRequest(
@@ -390,6 +487,8 @@ class OrderServiceTest {
         assertEquals(30.0, r.paidPrice)
         assertEquals(7.0, r.change)
         assertFalse(r.paid)
+        assertFalse(r.paidByQrScan)
+        assertNull(r.qrScanPayload)
     }
 
     @Test

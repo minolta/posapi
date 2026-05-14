@@ -3,8 +3,7 @@ package me.pixka.pos.order.model
 import com.fasterxml.jackson.annotation.JsonIgnore
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
-import jakarta.persistence.EnumType
-import jakarta.persistence.Enumerated
+import jakarta.persistence.Convert
 import jakarta.persistence.FetchType
 import jakarta.persistence.GeneratedValue
 import jakarta.persistence.GenerationType
@@ -40,7 +39,7 @@ class OrderLine(
     @Column(name = "unit_price", nullable = false)
     var unitPrice: Double = 0.0,
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = OrderLineStatusJpaConverter::class)
     @Column(nullable = false)
     var status: OrderLineStatus = OrderLineStatus.WAIT
 )

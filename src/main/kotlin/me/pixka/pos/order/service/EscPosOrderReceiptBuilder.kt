@@ -69,6 +69,15 @@ object EscPosOrderReceiptBuilder {
             textLine("Status: unpaid")
         }
         receipt.paidAt?.let { textLine("Paid at: ${it.format(dateFmt)}") }
+        if (receipt.paidByQrScan) {
+            raw(0x1B, 0x45, 0x01)
+            textLine("Payment: QR scan")
+            raw(0x1B, 0x45, 0x00)
+            receipt.qrScanPayload?.let { p ->
+                val short = if (p.length > 80) p.take(80) + "..." else p
+                textLine("QR ref: $short")
+            }
+        }
 
         raw(0x0A, 0x0A, 0x0A)
         // Feed then partial cut (GS V 1) — common on Epson TM series

@@ -128,6 +128,8 @@ class BackupService(
                     "cancel" to o.cancel,
                     "paid" to o.paid,
                     "paidAt" to o.paidAt?.toString(),
+                    "paidByQrScan" to o.paidByQrScan,
+                    "qrScanPayload" to o.qrScanPayload,
                     "version" to o.version,
                     "lines" to o.lines.map { l ->
                         mapOf(
@@ -290,6 +292,8 @@ class BackupService(
                 cancel = n.optBoolean("cancel") ?: false,
                 paid = n.optBoolean("paid") ?: false,
                 paidAt = parseDateTimeNullable(n, "paidAt"),
+                paidByQrScan = n.optBoolean("paidByQrScan") ?: false,
+                qrScanPayload = n.optText("qrScanPayload"),
             )
             order.version = n.optInt("version") ?: 0
             val linesNode = n["lines"]
@@ -337,12 +341,8 @@ class BackupService(
     }
 
     private fun parseLineStatus(ln: JsonNode): OrderLineStatus {
-        val raw = ln.optText("status") ?: return OrderLineStatus.WAIT
-        return try {
-            OrderLineStatus.valueOf(raw)
-        } catch (_: IllegalArgumentException) {
-            OrderLineStatus.WAIT
-        }
+        val raw = ln.optText("status")
+        return OrderLineStatus.fromWireOrWait(raw)
     }
 
     private fun parseDateTime(n: JsonNode, field: String): LocalDateTime {

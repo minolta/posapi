@@ -13,6 +13,8 @@ import org.springframework.core.io.ResourceLoader
 class KitchenDefaultDataLoader(
     private val kitchenRepository: KitchenRepository,
     private val resourceLoader: ResourceLoader,
+    @Value("\${app.default-data-load.enabled:false}")
+    private val defaultDataLoadEnabled: Boolean,
     @Value("\${app.kitchen-default-file:classpath:defaults/kitchens.txt}")
     private val kitchenDefaultFile: String
 ) {
@@ -20,6 +22,10 @@ class KitchenDefaultDataLoader(
 
     @Bean
     fun loadDefaultKitchensOnStartup(): ApplicationRunner = ApplicationRunner {
+        if (!defaultDataLoadEnabled) {
+            log.info("Default data load disabled; skip kitchen seed (app.default-data-load.enabled=false).")
+            return@ApplicationRunner
+        }
         val resource = resourceLoader.getResource(kitchenDefaultFile)
         if (!resource.exists()) {
             log.info("Kitchen default file not found at {}", kitchenDefaultFile)

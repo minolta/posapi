@@ -18,6 +18,6 @@ data class OrderLineRequest(
     @field:Size(max = 255, message = "note must be at most 255 characters")
     val note: String? = null,
 
-    /** Optional; defaults to WAIT when omitted by older clients. */
+    /** Optional; defaults to WAIT when omitted. Accepts FINISH_COOKING, CANSHIPNEW (legacy). */
     val status: OrderLineStatus? = null
 )

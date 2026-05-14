@@ -28,6 +28,8 @@ class OrderReceiptPdfServiceTest {
             change = 7.0,
             paid = true,
             paidAt = LocalDateTime.of(2026, 5, 13, 12, 35),
+            paidByQrScan = false,
+            qrScanPayload = null,
         )
         val bytes = pdfService.render(receipt)
         assertTrue(bytes.size > 200, "PDF should have non-trivial size")

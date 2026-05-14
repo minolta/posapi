@@ -75,6 +75,21 @@ class OrderService(
         }
         payment?.paidPrice?.let { order.paidPrice = kotlin.math.max(0.0, it) }
         payment?.change?.let { order.change = kotlin.math.max(0.0, it) }
+
+        val payloadTrimmed = payment?.qrScanPayload?.trim()?.takeIf { it.isNotEmpty() }?.take(1024)
+        val flag = payment?.paidByQrScan
+        val explicitQr = flag == true
+        /** Non-empty scanned data implies QR-settled unless the client explicitly sets `paidByQrScan=false`. */
+        val inferredQr = payloadTrimmed != null && flag != false
+        val useQrPayment = explicitQr || inferredQr
+
+        if (useQrPayment) {
+            order.paidByQrScan = true
+            order.qrScanPayload = payloadTrimmed
+        } else if (payment != null) {
+            order.paidByQrScan = false
+            order.qrScanPayload = null
+        }
         order.paid = true
         order.paidAt = LocalDateTime.now()
         order.complateOrder = true
@@ -118,6 +133,8 @@ class OrderService(
             change = order.change,
             paid = order.paid,
             paidAt = order.paidAt,
+            paidByQrScan = order.paidByQrScan,
+            qrScanPayload = order.qrScanPayload,
         )
     }
 

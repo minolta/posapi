@@ -70,6 +70,26 @@ class OrderController(
         return orderService.pay(id, body)
     }
 
+    /**
+     * Confirms payment after scanning a customer / payment QR. Same settlement rules as `POST …/pay`;
+     * always records [PayOrderRequest.paidByQrScan] and the scanned reference string.
+     */
+    @PostMapping("/{id}/pay/qr-scan")
+    fun payByQrScan(
+        @PathVariable id: Long,
+        @Valid @RequestBody body: PayByQrScanRequest,
+    ): PosOrder {
+        return orderService.pay(
+            id,
+            PayOrderRequest(
+                paidPrice = body.paidPrice,
+                change = body.change,
+                paidByQrScan = true,
+                qrScanPayload = body.qrScanPayload,
+            ),
+        )
+    }
+
     @GetMapping("/{id}/receipt")
     fun receipt(@PathVariable id: Long): OrderReceipt {
         return orderService.receipt(id)

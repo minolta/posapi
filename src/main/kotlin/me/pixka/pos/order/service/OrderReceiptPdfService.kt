@@ -80,6 +80,13 @@ class OrderReceiptPdfService {
             write("Change: ${money(receipt.change)}")
             write(if (receipt.paid) "Status: PAID" else "Status: unpaid", 10f, bold = receipt.paid)
             receipt.paidAt?.let { write("Paid at: ${it.format(dateFmt)}", 9f) }
+            if (receipt.paidByQrScan) {
+                write("Payment: QR scan", 10f, bold = true)
+                receipt.qrScanPayload?.let { p ->
+                    val short = if (p.length > 80) p.take(80) + "..." else p
+                    write("QR ref: $short", 8f)
+                }
+            }
 
             cs.close()
             return ByteArrayOutputStream().also { doc.save(it) }.toByteArray()

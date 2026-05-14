@@ -15,6 +15,8 @@ class TableDefaultDataLoader(
     private val tableRepository: TableRepository,
     private val zoneRepository: ZoneRepository,
     private val resourceLoader: ResourceLoader,
+    @Value("\${app.default-data-load.enabled:false}")
+    private val defaultDataLoadEnabled: Boolean,
     @Value("\${app.table-default-file:classpath:defaults/tables.txt}")
     private val defaultFile: String
 ) {
@@ -22,6 +24,10 @@ class TableDefaultDataLoader(
 
     @Bean
     fun loadDefaultTablesOnStartup(): ApplicationRunner = ApplicationRunner {
+        if (!defaultDataLoadEnabled) {
+            log.info("Default data load disabled; skip table seed (app.default-data-load.enabled=false).")
+            return@ApplicationRunner
+        }
         val resource = resourceLoader.getResource(defaultFile)
         if (!resource.exists()) {
             log.info("Table default file not found at {}", defaultFile)
