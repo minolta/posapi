@@ -60,6 +60,13 @@ class OrderReceiptPdfService {
             write("Date: " + (receipt.orderDate?.format(dateFmt) ?: "-"))
             write("Table: ${receipt.tableCode}")
             write("Zone: " + (receipt.zoneName ?: "-"))
+            receipt.orderNote?.trim()?.takeIf { it.isNotEmpty() }?.let { note ->
+                y -= 2f
+                write("Order note", 9f, bold = true)
+                for (ln in wrapText(note, 72)) {
+                    write(ln, 9f)
+                }
+            }
             if (receipt.cancel) write("CANCELLED", 11f, bold = true)
             y -= 6f
             write("Items", 9f, bold = true)
@@ -80,12 +87,15 @@ class OrderReceiptPdfService {
             write("Change: ${money(receipt.change)}")
             write(if (receipt.paid) "Status: PAID" else "Status: unpaid", 10f, bold = receipt.paid)
             receipt.paidAt?.let { write("Paid at: ${it.format(dateFmt)}", 9f) }
-            if (receipt.paidByQrScan) {
-                write("Payment: QR scan", 10f, bold = true)
-                receipt.qrScanPayload?.let { p ->
-                    val short = if (p.length > 80) p.take(80) + "..." else p
-                    write("QR ref: $short", 8f)
+            when {
+                receipt.paidByQrScan -> {
+                    write("Payment: QR scan", 10f, bold = true)
+                    receipt.qrScanPayload?.let { p ->
+                        val short = if (p.length > 80) p.take(80) + "..." else p
+                        write("QR ref: $short", 8f)
+                    }
                 }
+                receipt.paidByCredit -> write("Payment: Credit card", 10f, bold = true)
             }
 
             cs.close()

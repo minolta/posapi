@@ -109,12 +109,14 @@ class DailyReportServiceTest {
         assertEquals(d, report.endDate)
         assertEquals(1, report.paidOrderCount)
         assertEquals(0, report.paidByQrScanOrderCount)
+        assertEquals(0, report.paidByCreditOrderCount)
         assertEquals(20.0, report.totalSales)
         assertEquals(50.0, report.totalCashReceived)
         assertEquals(10.0, report.totalChange)
         assertEquals(1, report.rows.size)
         assertEquals("ORD-R1", report.rows[0].orderNo)
         assertEquals(false, report.rows[0].paidByQrScan)
+        assertEquals(false, report.rows[0].paidByCredit)
         assertEquals(1, report.foods.size)
         assertEquals("FD-R1", report.foods[0].foodCode)
         assertEquals(2, report.foods[0].quantity)
@@ -192,7 +194,48 @@ class DailyReportServiceTest {
         val report = dailyReportService.buildDailyCashReport(d, d)
         assertEquals(1, report.paidOrderCount)
         assertEquals(1, report.paidByQrScanOrderCount)
+        assertEquals(0, report.paidByCreditOrderCount)
         assertEquals(1, report.rows.size)
         assertEquals(true, report.rows[0].paidByQrScan)
+        assertEquals(false, report.rows[0].paidByCredit)
+    }
+
+    @Test
+    fun `daily report flags paid by credit and omits from cash totals`() {
+        val d = LocalDate.of(2026, 5, 21)
+        val order = PosOrder(
+            orderNo = "ORD-CR",
+            paidPrice = 100.0,
+            change = 0.0,
+            table = table,
+            orderDate = d.atTime(10, 0),
+            complateOrder = true,
+            complateOrderDate = d.atTime(16, 0),
+            cancel = false,
+            paid = true,
+            paidAt = d.atTime(16, 0),
+            paidByCredit = true,
+        )
+        order.lines.clear()
+        order.lines.add(
+            me.pixka.pos.order.model.OrderLine(
+                order = order,
+                food = food,
+                quantity = 1,
+                unitPrice = 100.0,
+                status = me.pixka.pos.order.model.OrderLineStatus.COMPLETE,
+            ),
+        )
+        orderRepository.save(order)
+
+        val report = dailyReportService.buildDailyCashReport(d, d)
+        assertEquals(1, report.paidOrderCount)
+        assertEquals(0, report.paidByQrScanOrderCount)
+        assertEquals(1, report.paidByCreditOrderCount)
+        assertEquals(100.0, report.totalSales)
+        assertEquals(0.0, report.totalCashReceived)
+        assertEquals(0.0, report.totalChange)
+        assertEquals(true, report.rows[0].paidByCredit)
+        assertEquals(false, report.rows[0].paidByQrScan)
     }
 }

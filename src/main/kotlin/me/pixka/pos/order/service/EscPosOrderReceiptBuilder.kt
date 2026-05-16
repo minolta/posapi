@@ -39,6 +39,14 @@ object EscPosOrderReceiptBuilder {
         textLine("Date: " + (receipt.orderDate?.format(dateFmt) ?: "-"))
         textLine("Table: ${receipt.tableCode}")
         textLine("Zone: " + (receipt.zoneName ?: "-"))
+        receipt.orderNote?.trim()?.takeIf { it.isNotEmpty() }?.let { note ->
+            raw(0x1B, 0x45, 0x01)
+            textLine("ORDER NOTE")
+            raw(0x1B, 0x45, 0x00)
+            for (ln in wrap(note, WIDTH)) {
+                textLine(ln)
+            }
+        }
         if (receipt.cancel) {
             raw(0x1B, 0x45, 0x01)
             textLine("*** CANCELLED ***")
@@ -69,13 +77,20 @@ object EscPosOrderReceiptBuilder {
             textLine("Status: unpaid")
         }
         receipt.paidAt?.let { textLine("Paid at: ${it.format(dateFmt)}") }
-        if (receipt.paidByQrScan) {
-            raw(0x1B, 0x45, 0x01)
-            textLine("Payment: QR scan")
-            raw(0x1B, 0x45, 0x00)
-            receipt.qrScanPayload?.let { p ->
-                val short = if (p.length > 80) p.take(80) + "..." else p
-                textLine("QR ref: $short")
+        when {
+            receipt.paidByQrScan -> {
+                raw(0x1B, 0x45, 0x01)
+                textLine("Payment: QR scan")
+                raw(0x1B, 0x45, 0x00)
+                receipt.qrScanPayload?.let { p ->
+                    val short = if (p.length > 80) p.take(80) + "..." else p
+                    textLine("QR ref: $short")
+                }
+            }
+            receipt.paidByCredit -> {
+                raw(0x1B, 0x45, 0x01)
+                textLine("Payment: Credit card")
+                raw(0x1B, 0x45, 0x00)
             }
         }
 

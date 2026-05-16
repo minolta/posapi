@@ -1,5 +1,6 @@
 package me.pixka.pos.order.model
 
+import com.fasterxml.jackson.annotation.JsonAlias
 import jakarta.persistence.*
 import me.pixka.pos.table.model.PosTable
 import java.time.LocalDateTime
@@ -46,9 +47,18 @@ class PosOrder(
     @Column(name = "paid_by_qr_scan", nullable = false)
     var paidByQrScan: Boolean = false,
 
+    /** True when payment was settled by credit card (no cash drawer). */
+    @Column(name = "paid_by_credit", nullable = false)
+    var paidByCredit: Boolean = false,
+
     /** Raw string read from the QR (optional; for audit / reconciliation). */
     @Column(name = "qr_scan_payload", length = 1024)
     var qrScanPayload: String? = null,
+
+    /** Whole-order note (e.g. table request, allergy) — separate from per-line kitchen notes. */
+    @get:JsonAlias("order_note", "orderNote")
+    @Column(name = "order_note", length = 2000)
+    var note: String? = null,
 
     @OneToMany(mappedBy = "order", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
     var lines: MutableList<OrderLine> = mutableListOf(),

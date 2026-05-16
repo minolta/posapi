@@ -27,6 +27,11 @@ data class PayOrderRequest(
     @param:JsonAlias("paid_by_qr_scan", "paidByQrScan", "paidByScan", "payByQr", "confirmPayByScan")
     val paidByQrScan: Boolean? = null,
 
+    /** When true, order is marked as paid by credit card (saved on the order). Takes precedence over QR inference. */
+    @field:JsonAlias("paid_by_credit", "payByCredit")
+    @param:JsonAlias("paid_by_credit", "payByCredit")
+    val paidByCredit: Boolean? = null,
+
     /** Optional raw payload from the scanned QR (e.g. PromptPay string). */
     @field:Size(max = 1024, message = "qrScanPayload must be at most 1024 characters")
     @field:JsonAlias("qr_scan_payload", "qrPayload", "qr_data")

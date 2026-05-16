@@ -3,6 +3,7 @@ package me.pixka.pos.order.service
 import me.pixka.pos.food.exception.FoodNotFoundException
 import me.pixka.pos.food.repository.FoodRepository
 import me.pixka.pos.order.api.OrderLineRequest
+import me.pixka.pos.order.api.PatchOrderNoteRequest
 import me.pixka.pos.order.api.PayOrderRequest
 import me.pixka.pos.order.api.OrderReport
 import me.pixka.pos.order.api.OrderReceipt
@@ -42,7 +43,8 @@ class OrderService(
             complateOrderDate = request.complateOrderDate,
             cancel = request.cancel,
             paid = false,
-            paidAt = null
+            paidAt = null,
+            note = request.note?.trim()?.takeIf { it.isNotEmpty() }?.take(2000),
         )
         replaceLines(order, request.lines)
         return orderRepository.save(order)
@@ -64,7 +66,23 @@ class OrderService(
         order.cancel = request.cancel
         order.paidPrice = request.paidPrice ?: 0.0
         order.change = request.change ?: 0.0
+        if (request.note != null) {
+            order.note = request.note.trim().takeIf { it.isNotEmpty() }?.take(2000)
+        }
         replaceLines(order, request.lines)
+        return orderRepository.save(order)
+    }
+
+    /**
+     * Updates only the whole-order note (e.g. cashier adds detail after payment).
+     * [request.version] must match [PosOrder.version] or the call fails with [IllegalArgumentException].
+     */
+    fun patchOrderNote(id: Long, request: PatchOrderNoteRequest): PosOrder {
+        val order = orderRepository.findById(id).orElseThrow { OrderNotFoundException(id) }
+        if (order.version != request.version) {
+            throw IllegalArgumentException("Order was modified elsewhere. Refresh and try again.")
+        }
+        order.note = request.note?.trim()?.takeIf { it.isNotEmpty() }?.take(2000)
         return orderRepository.save(order)
     }
 
@@ -76,19 +94,30 @@ class OrderService(
         payment?.paidPrice?.let { order.paidPrice = kotlin.math.max(0.0, it) }
         payment?.change?.let { order.change = kotlin.math.max(0.0, it) }
 
+        val useCredit = payment?.paidByCredit == true
         val payloadTrimmed = payment?.qrScanPayload?.trim()?.takeIf { it.isNotEmpty() }?.take(1024)
         val flag = payment?.paidByQrScan
         val explicitQr = flag == true
         /** Non-empty scanned data implies QR-settled unless the client explicitly sets `paidByQrScan=false`. */
         val inferredQr = payloadTrimmed != null && flag != false
-        val useQrPayment = explicitQr || inferredQr
+        val useQrPayment = !useCredit && (explicitQr || inferredQr)
 
-        if (useQrPayment) {
+        if (useCredit) {
+            order.paidByCredit = true
+            order.paidByQrScan = false
+            order.qrScanPayload = null
+        } else if (useQrPayment) {
             order.paidByQrScan = true
             order.qrScanPayload = payloadTrimmed
+            order.paidByCredit = false
         } else if (payment != null) {
             order.paidByQrScan = false
             order.qrScanPayload = null
+            order.paidByCredit = false
+        } else {
+            order.paidByQrScan = false
+            order.qrScanPayload = null
+            order.paidByCredit = false
         }
         order.paid = true
         order.paidAt = LocalDateTime.now()
@@ -102,6 +131,11 @@ class OrderService(
             throw OrderNotFoundException(id)
         }
         orderRepository.deleteById(id)
+    }
+
+    @Transactional(readOnly = true)
+    fun getById(id: Long): PosOrder {
+        return orderRepository.findById(id).orElseThrow { OrderNotFoundException(id) }
     }
 
     @Transactional(readOnly = true)
@@ -126,6 +160,7 @@ class OrderService(
             orderDate = order.orderDate,
             tableCode = table.code,
             zoneName = table.zone?.name,
+            orderNote = order.note?.trim()?.takeIf { it.isNotEmpty() },
             cancel = order.cancel,
             lines = lineItems,
             subtotal = subtotal,
@@ -134,6 +169,7 @@ class OrderService(
             paid = order.paid,
             paidAt = order.paidAt,
             paidByQrScan = order.paidByQrScan,
+            paidByCredit = order.paidByCredit,
             qrScanPayload = order.qrScanPayload,
         )
     }
@@ -232,6 +268,11 @@ class OrderService(
         order.lines.clear()
         for (lr in lineRequests) {
             val food = foodRepository.findById(lr.foodId).orElseThrow { FoodNotFoundException(lr.foodId) }
+            if (food.blockOrderLine) {
+                throw IllegalArgumentException(
+                    "Food \"${food.code}\" is blocked from order lines.",
+                )
+            }
             order.lines.add(
                 OrderLine(
                     order = order,

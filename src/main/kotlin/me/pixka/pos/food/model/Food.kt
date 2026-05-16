@@ -45,7 +45,11 @@ class Food(
 
     @Version
     @Column(nullable = false)
-    var version: Int = 0
+    var version: Int = 0,
+
+    /** When true, this SKU must not be added to new or updated order lines. */
+    @Column(name = "block_order_line", nullable = false)
+    var blockOrderLine: Boolean = false,
 ) {
     /** Relative URL for `<img src="{{ apiBase + pictureUrl }}">`; omitted when no picture. */
     @JsonProperty("pictureUrl")

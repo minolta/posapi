@@ -317,6 +317,41 @@ class OrderServiceTest {
     }
 
     @Test
+    fun `pay with credit sets flag and clears QR fields`() {
+        val existing = orderService.create(
+            OrderRequest(
+                orderNo = "ORD-CC",
+                tableId = table.id!!,
+                orderDate = LocalDateTime.now(),
+                complateOrder = false,
+                complateOrderDate = null,
+                cancel = false,
+                paidPrice = 10.0,
+                change = 0.0,
+                lines = singleLine(food.id!!),
+                version = 0,
+            ),
+        )
+        val paid = orderService.pay(
+            existing.id!!,
+            PayOrderRequest(
+                paidPrice = 10.0,
+                change = 0.0,
+                paidByCredit = true,
+                paidByQrScan = true,
+                qrScanPayload = "should-be-ignored",
+            ),
+        )
+        assertTrue(paid.paid)
+        assertTrue(paid.paidByCredit)
+        assertFalse(paid.paidByQrScan)
+        assertNull(paid.qrScanPayload)
+        val receipt = orderService.receipt(existing.id!!)
+        assertTrue(receipt.paidByCredit)
+        assertFalse(receipt.paidByQrScan)
+    }
+
+    @Test
     fun `pay treats as cash when paidByQrScan false even if qrScanPayload sent`() {
         val existing = orderService.create(
             OrderRequest(
@@ -488,6 +523,7 @@ class OrderServiceTest {
         assertEquals(7.0, r.change)
         assertFalse(r.paid)
         assertFalse(r.paidByQrScan)
+        assertFalse(r.paidByCredit)
         assertNull(r.qrScanPayload)
     }
 

@@ -112,6 +112,7 @@ class BackupService(
                     "kitchenId" to f.kitchen?.id,
                     "foodCategoryId" to f.foodCategory?.id,
                     "pictureExtension" to f.pictureExtension,
+                    "blockOrderLine" to f.blockOrderLine,
                     "version" to f.version,
                 )
             },
@@ -129,7 +130,9 @@ class BackupService(
                     "paid" to o.paid,
                     "paidAt" to o.paidAt?.toString(),
                     "paidByQrScan" to o.paidByQrScan,
+                    "paidByCredit" to o.paidByCredit,
                     "qrScanPayload" to o.qrScanPayload,
+                    "orderNote" to o.note,
                     "version" to o.version,
                     "lines" to o.lines.map { l ->
                         mapOf(
@@ -269,6 +272,7 @@ class BackupService(
                     foodCategoryIdMap[catOld] ?: throw IllegalArgumentException("unknown foodCategoryId in food: $catOld"),
                 ),
                 pictureExtension = n.optText("pictureExtension"),
+                blockOrderLine = n.optBoolean("blockOrderLine") ?: false,
             )
             f.version = n.optInt("version") ?: 0
             val saved = foodRepository.save(f)
@@ -293,7 +297,9 @@ class BackupService(
                 paid = n.optBoolean("paid") ?: false,
                 paidAt = parseDateTimeNullable(n, "paidAt"),
                 paidByQrScan = n.optBoolean("paidByQrScan") ?: false,
+                paidByCredit = n.optBoolean("paidByCredit") ?: false,
                 qrScanPayload = n.optText("qrScanPayload"),
+                note = n.optText("orderNote")?.trim()?.takeIf { it.isNotEmpty() }?.take(2000),
             )
             order.version = n.optInt("version") ?: 0
             val linesNode = n["lines"]

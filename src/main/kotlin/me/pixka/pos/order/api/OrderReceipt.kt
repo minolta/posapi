@@ -17,6 +17,7 @@ data class OrderReceipt(
     val orderDate: LocalDateTime?,
     val tableCode: String,
     val zoneName: String?,
+    val orderNote: String?,
     val cancel: Boolean,
     val lines: List<ReceiptLineItem>,
     val subtotal: Double,
@@ -25,5 +26,6 @@ data class OrderReceipt(
     val paid: Boolean,
     val paidAt: LocalDateTime?,
     val paidByQrScan: Boolean,
+    val paidByCredit: Boolean,
     val qrScanPayload: String?,
 )

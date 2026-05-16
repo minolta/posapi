@@ -1,5 +1,6 @@
 package me.pixka.pos.order.api
 
+import com.fasterxml.jackson.annotation.JsonAlias
 import jakarta.validation.Valid
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotEmpty
@@ -34,6 +35,12 @@ data class OrderRequest(
     /** When null or omitted, treated as 0. */
     @field:PositiveOrZero(message = "change must be >= 0")
     val change: Double? = null,
+
+    /** Optional whole-order note (not per-line kitchen note). Aliases match Angular/other clients. */
+    @field:Size(max = 2000, message = "note must be at most 2000 characters")
+    @field:JsonAlias("order_note", "orderNote")
+    @param:JsonAlias("order_note", "orderNote")
+    val note: String? = null,
 
     @field:NotEmpty(message = "lines must contain at least one item")
     @field:Valid

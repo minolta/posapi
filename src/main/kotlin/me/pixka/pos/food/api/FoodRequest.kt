@@ -24,5 +24,8 @@ data class FoodRequest(
 
     @field:NotNull(message = "version is required")
     @field:Min(value = 0, message = "version must be >= 0")
-    val version: Int
+    val version: Int,
+
+    /** When true, order APIs reject new lines for this food. */
+    val blockOrderLine: Boolean? = null,
 )

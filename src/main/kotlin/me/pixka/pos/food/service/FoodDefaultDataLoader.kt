@@ -76,7 +76,8 @@ class FoodDefaultDataLoader(
                     name = name,
                     basePrice = basePrice,
                     kitchen = kitchen,
-                    foodCategory = category
+                    foodCategory = category,
+                    blockOrderLine = false,
                 )
             )
             inserted++

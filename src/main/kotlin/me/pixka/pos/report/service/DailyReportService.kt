@@ -30,6 +30,7 @@ class DailyReportService(
         val foodRollup = mutableMapOf<Long, FoodAgg>()
         var paidOrderCount = 0
         var paidByQrScanOrderCount = 0
+        var paidByCreditOrderCount = 0
         var totalSales = 0.0
         var totalCashReceived = 0.0
         var totalChange = 0.0
@@ -51,12 +52,17 @@ class DailyReportService(
             if (order.paidByQrScan) {
                 paidByQrScanOrderCount += 1
             }
+            if (order.paidByCredit) {
+                paidByCreditOrderCount += 1
+            }
             val due = roundMoney(payableTotal(order))
             totalSales += due
             val pp = roundMoney(order.paidPrice)
             val ch = roundMoney(order.change)
-            totalCashReceived += pp
-            totalChange += ch
+            if (!order.paidByQrScan && !order.paidByCredit) {
+                totalCashReceived += pp
+                totalChange += ch
+            }
             rows.add(
                 DailyReportRow(
                     orderId = id,
@@ -66,6 +72,7 @@ class DailyReportService(
                     paidPrice = pp,
                     change = ch,
                     paidByQrScan = order.paidByQrScan,
+                    paidByCredit = order.paidByCredit,
                 ),
             )
             rollupFoodLines(order, foodRollup)
@@ -93,6 +100,7 @@ class DailyReportService(
             orderCount = touchIds.size,
             paidOrderCount = paidOrderCount,
             paidByQrScanOrderCount = paidByQrScanOrderCount,
+            paidByCreditOrderCount = paidByCreditOrderCount,
             totalSales = roundMoney(totalSales),
             totalCashReceived = roundMoney(totalCashReceived),
             totalChange = roundMoney(totalChange),

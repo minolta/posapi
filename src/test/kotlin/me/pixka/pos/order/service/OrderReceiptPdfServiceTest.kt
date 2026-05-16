@@ -18,6 +18,7 @@ class OrderReceiptPdfServiceTest {
             orderDate = LocalDateTime.of(2026, 5, 13, 12, 30),
             tableCode = "T1",
             zoneName = "Main",
+            orderNote = null,
             cancel = false,
             lines = listOf(
                 ReceiptLineItem("F1", "Burger", 2, 5.5, 11.0),
@@ -29,6 +30,7 @@ class OrderReceiptPdfServiceTest {
             paid = true,
             paidAt = LocalDateTime.of(2026, 5, 13, 12, 35),
             paidByQrScan = false,
+            paidByCredit = false,
             qrScanPayload = null,
         )
         val bytes = pdfService.render(receipt)

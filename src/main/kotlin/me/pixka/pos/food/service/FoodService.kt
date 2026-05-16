@@ -35,7 +35,8 @@ class FoodService(
             name = request.name,
             basePrice = request.basePrice,
             kitchen = kitchen,
-            foodCategory = foodCategory
+            foodCategory = foodCategory,
+            blockOrderLine = request.blockOrderLine ?: false,
         )
         return foodRepository.save(food)
     }
@@ -50,6 +51,9 @@ class FoodService(
         food.basePrice = request.basePrice
         food.kitchen = kitchen
         food.foodCategory = foodCategory
+        if (request.blockOrderLine != null) {
+            food.blockOrderLine = request.blockOrderLine
+        }
         return foodRepository.save(food)
     }
 

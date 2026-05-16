@@ -17,6 +17,7 @@ class EscPosOrderReceiptBuilderTest {
             orderDate = LocalDateTime.of(2026, 1, 1, 10, 0),
             tableCode = "T1",
             zoneName = "Z",
+            orderNote = null,
             cancel = false,
             lines = listOf(ReceiptLineItem("C", "Item", 1, 1.0, 1.0)),
             subtotal = 1.0,
@@ -25,6 +26,7 @@ class EscPosOrderReceiptBuilderTest {
             paid = false,
             paidAt = null,
             paidByQrScan = false,
+            paidByCredit = false,
             qrScanPayload = null,
         )
         val bytes = EscPosOrderReceiptBuilder.build(receipt)
