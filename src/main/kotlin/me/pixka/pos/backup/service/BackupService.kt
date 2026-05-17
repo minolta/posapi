@@ -23,11 +23,27 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.data.domain.Sort
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
+import java.io.BufferedOutputStream
+import java.io.ByteArrayInputStream
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+import java.util.zip.ZipOutputStream
+
+data class BackupExportResult(
+    val zipPath: Path,
+    val message: String,
+    val ordersExported: Int,
+    val ordersFromDate: LocalDate? = null,
+    val ordersToDate: LocalDate? = null,
+)
 
 @Service
 class BackupService(
@@ -42,115 +58,239 @@ class BackupService(
     private val backupDir: String,
 ) {
     private val tsFormat = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
+    private val utf8 = StandardCharsets.UTF_8
 
     private val jsonMapper = ObjectMapper()
 
+    companion object {
+        /** Single JSON entry inside exported `.zip` files (deterministic restore). */
+        private const val BACKUP_JSON_IN_ZIP = "pos-backup.json"
+    }
+
+    /** Multipart uploads: unzip when content is ZIP, else UTF-8 JSON text. */
+    fun decodeUploadedBackup(bytes: ByteArray, originalFilename: String?): String {
+        require(bytes.isNotEmpty()) { "backup file is empty" }
+        if (!looksLikeZip(bytes)) {
+            return String(bytes, utf8)
+        }
+        try {
+            return extractJsonFromZip(bytes)
+        } catch (e: IllegalArgumentException) {
+            throw e
+        } catch (e: Exception) {
+            throw IllegalArgumentException("invalid ZIP backup: ${e.message}", e)
+        }
+    }
+
     @Transactional(readOnly = true)
-    fun exportAllRecords(): Path {
+    fun exportAllRecords(
+        ordersFromDate: LocalDate? = null,
+        ordersToDate: LocalDate? = null,
+    ): BackupExportResult {
+        require(ordersFromDate == null || ordersToDate == null || !ordersFromDate.isAfter(ordersToDate)) {
+            "ordersFromDate must be on or before ordersToDate"
+        }
+
         val now = LocalDateTime.now()
-        val fileName = "backup-${now.format(tsFormat)}.json"
+        val ts = now.format(tsFormat)
+        val rangeSlug =
+            when {
+                ordersFromDate != null && ordersToDate != null ->
+                    ".orders.${ordersFromDate}_${ordersToDate}"
+
+                ordersFromDate != null ->
+                    ".orders.from_${ordersFromDate}"
+
+                ordersToDate != null ->
+                    ".orders.until_${ordersToDate}"
+
+                else ->
+                    ""
+            }
+        val zipName = "backup-$ts$rangeSlug.zip"
         val dir = Path.of(backupDir)
         Files.createDirectories(dir)
-        val file = dir.resolve(fileName)
+        val zipFile = dir.resolve(zipName)
 
-        val snapshot = mapOf(
-            "createdAt" to now.toString(),
-            "zones" to zoneRepository.findAll(Sort.by("id")).map { z ->
-                mapOf(
-                    "id" to z.id,
-                    "code" to z.code,
-                    "name" to z.name,
-                    "pictureExtension" to z.pictureExtension,
-                    "version" to z.version,
-                )
-            },
-            "tables" to tableRepository.findAll(Sort.by("id")).map { t ->
-                mapOf(
-                    "id" to t.id,
-                    "code" to t.code,
-                    "basePrice" to t.basePrice,
-                    "zoneId" to t.zone?.id,
-                    "version" to t.version,
-                )
-            },
-            "printers" to printerRepository.findAll(Sort.by("id")).map { p ->
-                mapOf(
-                    "id" to p.id,
-                    "code" to p.code,
-                    "name" to p.name,
-                    "host" to p.host,
-                    "port" to p.port,
-                    "enabled" to p.enabled,
-                    "connectTimeoutMs" to p.connectTimeoutMs,
-                    "readTimeoutMs" to p.readTimeoutMs,
-                    "version" to p.version,
-                )
-            },
-            "kitchens" to kitchenRepository.findAll(Sort.by("id")).map { k ->
-                mapOf(
-                    "id" to k.id,
-                    "code" to k.code,
-                    "name" to k.name,
-                    "printerId" to k.printer?.id,
-                    "version" to k.version,
-                )
-            },
-            "foodCategories" to foodCategoryRepository.findAll(Sort.by("id")).map { c ->
-                mapOf(
-                    "id" to c.id,
-                    "code" to c.code,
-                    "name" to c.name,
-                    "version" to c.version,
-                )
-            },
-            "foods" to foodRepository.findAll(Sort.by("id")).map { f ->
-                mapOf(
-                    "id" to f.id,
-                    "code" to f.code,
-                    "name" to f.name,
-                    "basePrice" to f.basePrice,
-                    "kitchenId" to f.kitchen?.id,
-                    "foodCategoryId" to f.foodCategory?.id,
-                    "pictureExtension" to f.pictureExtension,
-                    "blockOrderLine" to f.blockOrderLine,
-                    "version" to f.version,
-                )
-            },
-            "orders" to orderRepository.findAll(Sort.by("id")).map { o ->
-                mapOf(
-                    "id" to o.id,
-                    "orderNo" to o.orderNo,
-                    "paidPrice" to o.paidPrice,
-                    "change" to o.change,
-                    "tableId" to o.table?.id,
-                    "orderDate" to o.orderDate?.toString(),
-                    "complateOrder" to o.complateOrder,
-                    "complateOrderDate" to o.complateOrderDate?.toString(),
-                    "cancel" to o.cancel,
-                    "paid" to o.paid,
-                    "paidAt" to o.paidAt?.toString(),
-                    "paidByQrScan" to o.paidByQrScan,
-                    "paidByCredit" to o.paidByCredit,
-                    "qrScanPayload" to o.qrScanPayload,
-                    "orderNote" to o.note,
-                    "version" to o.version,
-                    "lines" to o.lines.map { l ->
+        val ordersSorted = ordersForExport(ordersFromDate, ordersToDate)
+        val ordersExported = ordersSorted.size
+
+        val filterMeta =
+            buildMap<String, String> {
+                ordersFromDate?.let { put("from", it.toString()) }
+                ordersToDate?.let { put("to", it.toString()) }
+            }.takeIf { it.isNotEmpty() }
+
+        val snapshot =
+            buildMap<String, Any> {
+                put("createdAt", now.toString())
+                filterMeta?.let { put("ordersExportFilter", it) }
+                put(
+                    "zones",
+                    zoneRepository.findAll(Sort.by("id")).map { z ->
                         mapOf(
-                            "id" to l.id,
-                            "foodId" to l.food?.id,
-                            "quantity" to l.quantity,
-                            "note" to l.note,
-                            "unitPrice" to l.unitPrice,
-                            "status" to l.status.name,
+                            "id" to z.id,
+                            "code" to z.code,
+                            "name" to z.name,
+                            "pictureExtension" to z.pictureExtension,
+                            "version" to z.version,
                         )
                     },
                 )
-            },
-        )
+                put(
+                    "tables",
+                    tableRepository.findAll(Sort.by("id")).map { t ->
+                        mapOf(
+                            "id" to t.id,
+                            "code" to t.code,
+                            "basePrice" to t.basePrice,
+                            "zoneId" to t.zone?.id,
+                            "version" to t.version,
+                        )
+                    },
+                )
+                put(
+                    "printers",
+                    printerRepository.findAll(Sort.by("id")).map { p ->
+                        mapOf(
+                            "id" to p.id,
+                            "code" to p.code,
+                            "name" to p.name,
+                            "host" to p.host,
+                            "port" to p.port,
+                            "enabled" to p.enabled,
+                            "connectTimeoutMs" to p.connectTimeoutMs,
+                            "readTimeoutMs" to p.readTimeoutMs,
+                            "version" to p.version,
+                        )
+                    },
+                )
+                put(
+                    "kitchens",
+                    kitchenRepository.findAll(Sort.by("id")).map { k ->
+                        mapOf(
+                            "id" to k.id,
+                            "code" to k.code,
+                            "name" to k.name,
+                            "printerId" to k.printer?.id,
+                            "version" to k.version,
+                        )
+                    },
+                )
+                put(
+                    "foodCategories",
+                    foodCategoryRepository.findAll(Sort.by("id")).map { c ->
+                        mapOf(
+                            "id" to c.id,
+                            "code" to c.code,
+                            "name" to c.name,
+                            "version" to c.version,
+                        )
+                    },
+                )
+                put(
+                    "foods",
+                    foodRepository.findAll(Sort.by("id")).map { f ->
+                        mapOf(
+                            "id" to f.id,
+                            "code" to f.code,
+                            "name" to f.name,
+                            "basePrice" to f.basePrice,
+                            "kitchenId" to f.kitchen?.id,
+                            "foodCategoryId" to f.foodCategory?.id,
+                            "pictureExtension" to f.pictureExtension,
+                            "blockOrderLine" to f.blockOrderLine,
+                            "version" to f.version,
+                        )
+                    },
+                )
+                put(
+                    "orders",
+                    ordersSorted.map { o ->
+                        mapOf(
+                            "id" to o.id,
+                            "orderNo" to o.orderNo,
+                            "paidPrice" to o.paidPrice,
+                            "change" to o.change,
+                            "tableId" to o.table?.id,
+                            "orderDate" to o.orderDate?.toString(),
+                            "complateOrder" to o.complateOrder,
+                            "complateOrderDate" to o.complateOrderDate?.toString(),
+                            "cancel" to o.cancel,
+                            "paid" to o.paid,
+                            "paidAt" to o.paidAt?.toString(),
+                            "paidByQrScan" to o.paidByQrScan,
+                            "paidByCredit" to o.paidByCredit,
+                            "qrScanPayload" to o.qrScanPayload,
+                            "orderNote" to o.note,
+                            "version" to o.version,
+                            "lines" to o.lines.map { l ->
+                                mapOf(
+                                    "id" to l.id,
+                                    "foodId" to l.food?.id,
+                                    "quantity" to l.quantity,
+                                    "note" to l.note,
+                                    "unitPrice" to l.unitPrice,
+                                    "status" to l.status.name,
+                                )
+                            },
+                        )
+                    },
+                )
+            }
 
-        Files.writeString(file, toJson(snapshot))
-        return file
+        val jsonBytes = toJson(snapshot).toByteArray(utf8)
+        ZipOutputStream(BufferedOutputStream(Files.newOutputStream(zipFile))).use { z ->
+            z.putNextEntry(ZipEntry(BACKUP_JSON_IN_ZIP))
+            z.write(jsonBytes)
+            z.closeEntry()
+        }
+
+        val msg =
+            buildString {
+                append("Exported ZIP (${BACKUP_JSON_IN_ZIP}); ")
+                append(ordersExported)
+                append(" order")
+                append(if (ordersExported == 1) "" else "s")
+                if (ordersFromDate != null || ordersToDate != null) {
+                    append(" dated ")
+                    append(ordersFromDate?.toString() ?: "start")
+                    append(" … ")
+                    append(ordersToDate?.toString() ?: "end")
+                    append("; master data unchanged (full catalogue). ")
+                }
+            }
+
+        return BackupExportResult(
+            zipPath = zipFile,
+            message = msg,
+            ordersExported = ordersExported,
+            ordersFromDate = ordersFromDate,
+            ordersToDate = ordersToDate,
+        )
     }
+
+    private fun ordersForExport(ordersFromDate: LocalDate?, ordersToDate: LocalDate?): List<PosOrder> =
+        when {
+            ordersFromDate == null && ordersToDate == null ->
+                orderRepository.findAll(Sort.by(Sort.Direction.ASC, "orderDate", "id"))
+
+            ordersFromDate != null && ordersToDate != null ->
+                orderRepository.findByOrderDateBetweenOrderByOrderDateAsc(
+                    ordersFromDate.atStartOfDay(),
+                    ordersToDate.atTime(LocalTime.MAX),
+                )
+
+            ordersFromDate != null ->
+                orderRepository.findByOrderDateGreaterThanEqualOrderByOrderDateAscIdAsc(
+                    ordersFromDate.atStartOfDay(),
+                )
+
+            else ->
+                orderRepository.findByOrderDateLessThanEqualOrderByOrderDateAscIdAsc(
+                    ordersToDate!!.atTime(LocalTime.MAX),
+                )
+        }
 
     /** Reads a backup file from [backupDir] only (no path traversal). */
     fun readBackupFile(fileName: String): ByteArray {
@@ -164,6 +304,40 @@ class BackupService(
         require(Files.isRegularFile(path)) { "backup file not found: $name" }
         return Files.readAllBytes(path)
     }
+
+    private fun looksLikeZip(bytes: ByteArray): Boolean =
+        bytes.size >= 4 &&
+            bytes[0] == 'P'.code.toByte() &&
+            bytes[1] == 'K'.code.toByte()
+
+    private fun extractJsonFromZip(bytes: ByteArray): String {
+        var standardPayload: ByteArray? = null
+        var fallbackJson: ByteArray? = null
+        ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
+            while (true) {
+                val entry = zip.nextEntry ?: break
+                if (entry.isDirectory) continue
+                val simple = normalizeZipEntryName(entry.name).substringAfterLast('/')
+                if (!simple.endsWith(".json", ignoreCase = true)) continue
+                val body = zip.readBytes()
+                if (simple.equals(BACKUP_JSON_IN_ZIP, ignoreCase = true)) {
+                    standardPayload = body
+                    break
+                }
+                if (fallbackJson == null) {
+                    fallbackJson = body
+                }
+            }
+        }
+        val payload =
+            standardPayload ?: fallbackJson ?: throw IllegalArgumentException(
+                "ZIP contains no .json backup (expected \"$BACKUP_JSON_IN_ZIP\").",
+            )
+        return String(payload, utf8)
+    }
+
+    private fun normalizeZipEntryName(raw: String): String =
+        raw.trim().replace('\\', '/').trimStart('/')
 
     /**
      * Replaces all POS data with the content of a backup JSON (same shape as export).
