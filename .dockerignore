@@ -1,0 +1,8 @@
+target
+.git
+.idea
+.cursor
+terminals
+agent-transcripts
+*.log
+data

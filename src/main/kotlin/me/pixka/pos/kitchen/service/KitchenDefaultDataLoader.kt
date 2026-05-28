@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.ApplicationRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.annotation.Order
 import org.springframework.core.io.ResourceLoader
 
 @Configuration
@@ -15,15 +16,18 @@ class KitchenDefaultDataLoader(
     private val resourceLoader: ResourceLoader,
     @Value("\${app.default-data-load.enabled:false}")
     private val defaultDataLoadEnabled: Boolean,
+    @Value("\${app.default-data-load.kitchens:false}")
+    private val kitchensLoadEnabled: Boolean,
     @Value("\${app.kitchen-default-file:classpath:defaults/kitchens.txt}")
     private val kitchenDefaultFile: String
 ) {
     private val log = LoggerFactory.getLogger(KitchenDefaultDataLoader::class.java)
 
     @Bean
+    @Order(15)
     fun loadDefaultKitchensOnStartup(): ApplicationRunner = ApplicationRunner {
-        if (!defaultDataLoadEnabled) {
-            log.info("Default data load disabled; skip kitchen seed (app.default-data-load.enabled=false).")
+        if (!defaultDataLoadEnabled || !kitchensLoadEnabled) {
+            log.info("Default data load disabled; skip kitchen seed.")
             return@ApplicationRunner
         }
         val resource = resourceLoader.getResource(kitchenDefaultFile)

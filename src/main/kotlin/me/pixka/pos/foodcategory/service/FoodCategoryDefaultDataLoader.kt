@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.ApplicationRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.annotation.Order
 import org.springframework.core.io.ResourceLoader
 
 @Configuration
@@ -21,6 +22,7 @@ class FoodCategoryDefaultDataLoader(
     private val log = LoggerFactory.getLogger(FoodCategoryDefaultDataLoader::class.java)
 
     @Bean
+    @Order(20)
     fun loadDefaultFoodCategoriesOnStartup(): ApplicationRunner = ApplicationRunner {
         if (!defaultDataLoadEnabled) {
             log.info("Default data load disabled; skip food category seed (app.default-data-load.enabled=false).")

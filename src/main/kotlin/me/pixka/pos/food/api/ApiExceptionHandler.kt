@@ -40,11 +40,17 @@ class ApiExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException::class)
     @ResponseStatus(HttpStatus.CONFLICT)
     fun handleDataIntegrity(ex: DataIntegrityViolationException): Map<String, String> {
-        // FK / unique violations from any entity (foods→category, tables→zone, foods→kitchen, etc.)
-        return mapOf(
-            "message" to
-                "This record is still referenced elsewhere. Remove or reassign those dependent records first.",
-        )
+        val root = ex.mostSpecificCause.message?.lowercase().orEmpty()
+        val message =
+            when {
+                root.contains("order_no") || (root.contains("unique") && root.contains("order")) ->
+                    "An order number conflict occurred. Refresh and try again."
+                root.contains("foreign key") || root.contains("fk_") || root.contains("constraint") ->
+                    "Table or food is missing or was deleted. Refresh the page and pick again."
+                else ->
+                    "This record is still referenced elsewhere. Remove or reassign those dependent records first."
+            }
+        return mapOf("message" to message)
     }
 
     @ExceptionHandler(MethodArgumentNotValidException::class)

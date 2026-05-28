@@ -19,6 +19,8 @@ class FoodDefaultDataLoader(
     private val resourceLoader: ResourceLoader,
     @Value("\${app.default-data-load.enabled:false}")
     private val defaultDataLoadEnabled: Boolean,
+    @Value("\${app.default-data-load.foods:false}")
+    private val foodsLoadEnabled: Boolean,
     @Value("\${app.food-default-file:classpath:defaults/foods.txt}")
     private val defaultFile: String
 ) {
@@ -26,8 +28,8 @@ class FoodDefaultDataLoader(
 
     @Bean
     fun loadDefaultFoodsOnStartup(): ApplicationRunner = ApplicationRunner {
-        if (!defaultDataLoadEnabled) {
-            log.info("Default data load disabled; skip food seed (app.default-data-load.enabled=false).")
+        if (!defaultDataLoadEnabled || !foodsLoadEnabled) {
+            log.info("Default data load disabled; skip food seed.")
             return@ApplicationRunner
         }
         val resource = resourceLoader.getResource(defaultFile)

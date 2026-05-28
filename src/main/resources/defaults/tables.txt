@@ -1,4 +1,7 @@
 # code|basePrice|zoneCode
-T1|0|A
-T2|0|A
-T3|0|B
+T1|0|MAIN
+T2|0|MAIN
+T3|0|MAIN
+T4|0|A
+T5|0|A
+T6|0|B

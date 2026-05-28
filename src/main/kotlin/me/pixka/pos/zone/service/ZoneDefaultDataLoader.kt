@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.ApplicationRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.annotation.Order
 import org.springframework.core.io.ResourceLoader
 
 @Configuration
@@ -21,6 +22,7 @@ class ZoneDefaultDataLoader(
     private val log = LoggerFactory.getLogger(ZoneDefaultDataLoader::class.java)
 
     @Bean
+    @Order(10)
     fun loadDefaultZonesOnStartup(): ApplicationRunner = ApplicationRunner {
         if (!defaultDataLoadEnabled) {
             log.info("Default data load disabled; skip zone seed (app.default-data-load.enabled=false).")

@@ -15,6 +15,8 @@ data class OrderRequest(
     val orderNo: String? = null,
 
     @field:NotNull(message = "tableId is required")
+    @field:JsonAlias("table_id")
+    @param:JsonAlias("table_id")
     val tableId: Long,
 
     @field:NotNull(message = "orderDate is required")

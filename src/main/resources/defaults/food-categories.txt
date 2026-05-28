@@ -1,4 +1,5 @@
-# code|name
+# code|name  (food groups)
 FOOD|Food
 DRINK|Drink
 DESSERT|Dessert
+APPETIZER|Appetizer

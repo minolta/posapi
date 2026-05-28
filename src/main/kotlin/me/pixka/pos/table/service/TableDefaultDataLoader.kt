@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.ApplicationRunner
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.core.annotation.Order
 import org.springframework.core.io.ResourceLoader
 
 @Configuration
@@ -23,6 +24,7 @@ class TableDefaultDataLoader(
     private val log = LoggerFactory.getLogger(TableDefaultDataLoader::class.java)
 
     @Bean
+    @Order(30)
     fun loadDefaultTablesOnStartup(): ApplicationRunner = ApplicationRunner {
         if (!defaultDataLoadEnabled) {
             log.info("Default data load disabled; skip table seed (app.default-data-load.enabled=false).")

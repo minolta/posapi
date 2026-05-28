@@ -12,7 +12,9 @@ class WebCorsConfig : WebMvcConfigurer {
             .allowedOriginPatterns(
                 "http://localhost:*",
                 "http://127.0.0.1:*",
-                "http://[::1]:*"
+                "http://[::1]:*",
+                "http://203.150.243.87:*",
+                "https://203.150.243.87:*"
             )
             .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD")
             .allowedHeaders("*")

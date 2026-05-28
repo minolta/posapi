@@ -8,6 +8,8 @@ import me.pixka.pos.order.model.OrderLineStatus
 
 data class OrderLineRequest(
     @field:NotNull(message = "foodId is required")
+    @field:JsonAlias("food_id")
+    @param:JsonAlias("food_id")
     val foodId: Long,
 
     @field:NotNull(message = "quantity is required")
