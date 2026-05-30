@@ -1,5 +1,6 @@
 package me.pixka.pos.order.model
 
+import com.fasterxml.jackson.annotation.JsonAlias
 import com.fasterxml.jackson.annotation.JsonIgnore
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
@@ -41,5 +42,10 @@ class OrderLine(
 
     @Convert(converter = OrderLineStatusJpaConverter::class)
     @Column(nullable = false)
-    var status: OrderLineStatus = OrderLineStatus.WAIT
+    var status: OrderLineStatus = OrderLineStatus.WAIT,
+
+    /** Staff user who added this line (`user_id` in JSON). */
+    @get:JsonAlias("user_id")
+    @Column(name = "user_id")
+    var userId: Long? = null,
 )

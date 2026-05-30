@@ -1,5 +1,8 @@
 package me.pixka.pos.order.service
 
+import me.pixka.pos.auth.model.User
+import me.pixka.pos.auth.model.UserRole
+import me.pixka.pos.auth.repository.UserRepository
 import me.pixka.pos.food.model.Food
 import me.pixka.pos.food.repository.FoodRepository
 import me.pixka.pos.foodcategory.model.FoodCategory
@@ -54,9 +57,13 @@ class OrderServiceTest {
     @Autowired
     private lateinit var foodCategoryRepository: FoodCategoryRepository
 
+    @Autowired
+    private lateinit var userRepository: UserRepository
+
     private lateinit var table: PosTable
     private lateinit var food: Food
     private lateinit var drink: Food
+    private lateinit var staffUser: User
 
     @BeforeEach
     fun clearData() {
@@ -66,6 +73,7 @@ class OrderServiceTest {
         kitchenRepository.deleteAll()
         foodCategoryRepository.deleteAll()
         zoneRepository.deleteAll()
+        userRepository.deleteAll()
 
         val zone = zoneRepository.save(
             Zone(
@@ -104,6 +112,13 @@ class OrderServiceTest {
                 foodCategory = foodCategory
             )
         )
+        staffUser = userRepository.save(
+            User(
+                username = "cashier1",
+                passwordHash = "hash",
+                role = UserRole.STAFF,
+            )
+        )
     }
 
     private fun singleLine(foodId: Long, qty: Int = 1) =
@@ -140,6 +155,33 @@ class OrderServiceTest {
         assertEquals(10.0, created.lines[0].unitPrice)
         assertEquals(food.id, created.lines[0].food?.id)
         assertEquals(1, orderRepository.count())
+    }
+
+    @Test
+    fun `create should persist userId on order and lines`() {
+        val uid = staffUser.id!!
+        val request = OrderRequest(
+            orderNo = "ORD-USER",
+            tableId = table.id!!,
+            orderDate = LocalDateTime.now(),
+            complateOrder = false,
+            complateOrderDate = null,
+            cancel = false,
+            paidPrice = 0.0,
+            change = 0.0,
+            userId = uid,
+            lines = listOf(
+                OrderLineRequest(foodId = food.id!!, quantity = 1, userId = uid),
+                OrderLineRequest(foodId = drink.id!!, quantity = 2),
+            ),
+            version = 0,
+        )
+
+        val created = orderService.create(request)
+
+        assertEquals(uid, created.userId)
+        assertEquals(uid, created.lines[0].userId)
+        assertEquals(uid, created.lines[1].userId)
     }
 
     @Test

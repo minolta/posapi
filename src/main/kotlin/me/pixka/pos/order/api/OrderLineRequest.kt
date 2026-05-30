@@ -21,5 +21,10 @@ data class OrderLineRequest(
     val note: String? = null,
 
     /** Optional; defaults to WAIT when omitted. Accepts FINISH_COOKING, CANSHIPNEW (legacy). */
-    val status: OrderLineStatus? = null
+    val status: OrderLineStatus? = null,
+
+    /** Operator who added this line; falls back to order [OrderRequest.userId] on create/update when omitted. */
+    @field:JsonAlias("user_id")
+    @param:JsonAlias("user_id")
+    val userId: Long? = null,
 )

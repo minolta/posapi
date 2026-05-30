@@ -1,5 +1,7 @@
 package me.pixka.pos.order.service
 
+import me.pixka.pos.auth.exception.UserNotFoundException
+import me.pixka.pos.auth.repository.UserRepository
 import me.pixka.pos.food.exception.FoodNotFoundException
 import me.pixka.pos.food.repository.FoodRepository
 import me.pixka.pos.order.api.OrderLineRequest
@@ -29,7 +31,8 @@ import java.time.LocalDate
 class OrderService(
     private val orderRepository: OrderRepository,
     private val tableRepository: TableRepository,
-    private val foodRepository: FoodRepository
+    private val foodRepository: FoodRepository,
+    private val userRepository: UserRepository,
 ) {
     fun create(request: OrderRequest): PosOrder {
         val table = tableRepository.findById(request.tableId).orElseThrow { TableNotFoundException(request.tableId) }
@@ -45,8 +48,9 @@ class OrderService(
             paid = false,
             paidAt = null,
             note = request.note?.trim()?.takeIf { it.isNotEmpty() }?.take(2000),
+            userId = resolveUserId(request.userId),
         )
-        replaceLines(order, request.lines)
+        replaceLines(order, request.lines, request.userId)
         return orderRepository.save(order)
     }
 
@@ -69,7 +73,10 @@ class OrderService(
         if (request.note != null) {
             order.note = request.note.trim().takeIf { it.isNotEmpty() }?.take(2000)
         }
-        replaceLines(order, request.lines)
+        if (request.userId != null) {
+            order.userId = resolveUserId(request.userId)
+        }
+        replaceLines(order, request.lines, request.userId ?: order.userId)
         return orderRepository.save(order)
     }
 
@@ -264,7 +271,17 @@ class OrderService(
         return candidate
     }
 
-    private fun replaceLines(order: PosOrder, lineRequests: List<OrderLineRequest>) {
+    private fun resolveUserId(userId: Long?): Long? {
+        if (userId == null) {
+            return null
+        }
+        if (!userRepository.existsById(userId)) {
+            throw UserNotFoundException(userId)
+        }
+        return userId
+    }
+
+    private fun replaceLines(order: PosOrder, lineRequests: List<OrderLineRequest>, orderUserId: Long?) {
         order.lines.clear()
         for (lr in lineRequests) {
             val food = foodRepository.findById(lr.foodId).orElseThrow { FoodNotFoundException(lr.foodId) }
@@ -273,6 +290,7 @@ class OrderService(
                     "Food \"${food.code}\" is blocked from order lines.",
                 )
             }
+            val lineUserId = resolveUserId(lr.userId ?: orderUserId)
             order.lines.add(
                 OrderLine(
                     order = order,
@@ -280,7 +298,8 @@ class OrderService(
                     quantity = lr.quantity,
                     note = lr.note?.trim()?.takeIf { it.isNotEmpty() },
                     unitPrice = food.basePrice,
-                    status = lr.status ?: OrderLineStatus.WAIT
+                    status = lr.status ?: OrderLineStatus.WAIT,
+                    userId = lineUserId,
                 )
             )
         }

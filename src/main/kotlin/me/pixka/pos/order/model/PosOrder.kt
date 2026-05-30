@@ -60,6 +60,11 @@ class PosOrder(
     @Column(name = "order_note", length = 2000)
     var note: String? = null,
 
+    /** Staff user who created the order (`user_id` in JSON). */
+    @get:JsonAlias("user_id")
+    @Column(name = "user_id")
+    var userId: Long? = null,
+
     @OneToMany(mappedBy = "order", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
     var lines: MutableList<OrderLine> = mutableListOf(),
 

@@ -44,6 +44,11 @@ data class OrderRequest(
     @param:JsonAlias("order_note", "orderNote")
     val note: String? = null,
 
+    /** Operator who created the order; aliases match Angular JSON (`user_id`). */
+    @field:JsonAlias("user_id")
+    @param:JsonAlias("user_id")
+    val userId: Long? = null,
+
     @field:NotEmpty(message = "lines must contain at least one item")
     @field:Valid
     val lines: List<OrderLineRequest>,
